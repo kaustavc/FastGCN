@@ -31,6 +31,167 @@ flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 
 # Load data
 
+"""
+Load the graph data from a pickle file. Not used here
+"""
+def loadRedditFromG(dataset_dir, inputfile):
+    f= open(dataset_dir+inputfile)
+    objects = []
+    for _ in range(pkl.load(f)):
+        objects.append(pkl.load(f))
+    adj, train_labels, val_labels, test_labels, train_index, val_index, test_index = tuple(objects)
+    feats = np.load(dataset_dir + "/reddit-feats.npy")
+    return sp.csr_matrix(adj), sp.lil_matrix(feats), train_labels, val_labels, test_labels, train_index, val_index, test_index
+
+
+"""
+Load the transformed graph data saved in two npz files:
+- First npz file has adjacency matrix
+- Second npz file has features, labels and train, test, validation split for vertices
+
+Returns:
+adjacency matrix, feature matrix, labels(train, val, test), vertex_indices(train, val, test)
+
+Note that original vertex names are no longer present. All information is in terms of vertex indexes as present
+in the vertex features matrix
+
+This function is used by main and test code below
+"""
+def loadRedditFromNPZ(dataset_dir):
+    adj = sp.load_npz(dataset_dir+"reddit_adj.npz")
+    data = np.load(dataset_dir+"reddit.npz")
+
+    return adj, data['feats'], data['y_train'], data['y_val'], data['y_test'], data['train_index'], data['val_index'], data['test_index']
+
+
+"""
+Read a networkX JSON graph, and write out a npz file which contains the adjacency matrix for the graph
+
+This function is not called anywhere here. It is meant to be invoked as a preprocessing step to transform
+the data
+"""
+def transferG2ADJ():
+    # Create networkx graph object from graph stored as JSON
+    G = json_graph.node_link_graph(json.load(open("reddit/reddit-G.json")))
+
+    # This file is a map which has 'nodeid' : index. This should be the row number in the feats np array
+    feat_id_map = json.load(open("reddit/reddit-id_map.json"))
+    # What purpose is this serving? Seems to be creating k:v pairs from k:v pairs of the same map
+    feat_id_map = {id: val for id, val in feat_id_map.iteritems()}
+
+    # Derive number of nodes from size of map
+    numNode = len(feat_id_map)
+
+    # Create NxN adjacency matrix filled with 0s (UNUSED!!)
+    adj = np.zeros((numNode, numNode))
+
+    # Iterate over all the edges (u, v) in G, where u, v are node names
+    # newEdges0 has the feature-matrix index of each origin vertex u in the list of edges
+    # newEdges1 has the feature-matrix index of each origin vertex u in the list of edges
+    # Essentially at this point, zip(newEdges0, newEdges1) gives the edges in G in terms of their feature matrix
+    # indices
+    newEdges0 = [feat_id_map[edge[0]] for edge in G.edges()]
+    newEdges1 = [feat_id_map[edge[1]] for edge in G.edges()]
+
+    # for edge in G.edges():
+    #     adj[feat_id_map[edge[0]], feat_id_map[edge[1]]] = 1
+
+    # This essentially creates 1 numNode x numNode adjacency matrix
+    # Positions which are from zip(newEdges0, newEdges1) are marked with 1 in the matrix
+    adj = sp.csr_matrix(
+        (
+            np.ones( (len(newEdges0),) ),  # Create a 1D array of 1s of length = number of edges
+            (newEdges0, newEdges1)
+        ),
+        shape=(numNode, numNode) )
+
+    # Save this matrix. This is a numNode x numNode adjacency matrix of the graph G
+    sp.save_npz("reddit_adj.npz", adj)
+
+
+"""
+Read a networkX JSON graph, and write out a npz file which contains:
+- Feature of the vertices of the graph as an np matrix (one matrix)
+- Labels of the vertices of the graph as a list (separate for train, test and val)
+- Feature matrix index of the vertices of the graph as a list (separate for train, test and val)
+
+Note:
+- That adjacency information is NOT saved in the npz
+- Original vertex names are not captured. Each position in the lists denote a node of unknown name, whose
+  labels and feature-index occur at the same position in the list.
+
+This function is not called anywhere here. It is meant to be invoked as a preprocessing step to transform
+the data
+"""
+def transferRedditDataFormat(dataset_dir, output_file):
+    # Create networkx graph object from graph stored as JSON
+    G = json_graph.node_link_graph(json.load(open(dataset_dir + "/reddit-G.json")))
+
+    # Labels is just a map which has 'nodeid' : nodeclass. Where nodeid is string and class is integer
+    labels = json.load(open(dataset_dir + "/reddit-class_map.json"))
+
+    # List of ids of test nodes: All nodes which have the boolean test attribute true
+    test_ids = [n for n in G.nodes() if G.node[n]['test']]
+    # List of ids of val nodes: All nodes which have the boolean val attribute true
+    val_ids = [n for n in G.nodes() if G.node[n]['val']]
+    # List of ids of training nodes: All nodes which are neither val nor test. Should be OR below and not AND?
+    train_ids = [n for n in G.nodes() if not G.node[n]['val'] and not G.node[n]['test']]
+
+    # List of labels corresponding to test nodes
+    test_labels = [labels[i] for i in test_ids]
+    # List of labels corresponding to val nodes
+    val_labels = [labels[i] for i in val_ids]
+    # List of labels corresponding to training nodes
+    train_labels = [labels[i] for i in train_ids]
+
+    # Read node features from npy file. npy files store one numpy array.
+    # This appears to be a matrix with one row for the feature of each node
+    # QUESTION: How is correspondence with nodeids maintained? This is using the id_map file below
+    feats = np.load(dataset_dir + "/reddit-feats.npy")
+
+    # Apply some transformations on the features
+    ## Logistic gets thrown off by big counts, so log transform num comments and score
+    feats[:, 0] = np.log(feats[:, 0] + 1.0)
+    feats[:, 1] = np.log(feats[:, 1] - min(np.min(feats[:, 1]), -1))
+
+    # This file is a map which has 'nodeid' : index. This should be the row number in the feats np array
+    feat_id_map = json.load(open(dataset_dir + "reddit-id_map.json"))
+
+    # What purpose is this serving? Seems to be creating k:v pairs from k:v pairs of the same map
+    feat_id_map = {id: val for id, val in feat_id_map.iteritems()}
+
+    # train_feats = feats[[feat_id_map[id] for id in train_ids]]
+    # test_feats = feats[[feat_id_map[id] for id in test_ids]]
+
+    # numNode = len(feat_id_map)
+    # adj = sp.lil_matrix(np.zeros((numNode,numNode)))
+    # for edge in G.edges():
+    #     adj[feat_id_map[edge[0]], feat_id_map[edge[1]]] = 1
+
+    # List of test node indexes
+    test_index = [feat_id_map[id] for id in test_ids]
+    # List of val node indexes
+    val_index = [feat_id_map[id] for id in val_ids]
+    # List of training node indexes
+    train_index = [feat_id_map[id] for id in train_ids]
+
+    np.savez(output_file,
+             feats = feats,                # Numpy matrix of transformed features
+             y_train=train_labels,         # List of labels for training nodes
+             y_val=val_labels,             # List of labels for val nodes
+             y_test = test_labels,         # List of labels for test nodes
+             train_index = train_index,    # List of feature matrix index for training nodes
+             val_index=val_index,          # List of feature matrix index for val nodes
+             test_index = test_index)      # List of feature matrix index for test nodes
+
+
+
+def transferLabel2Onehot(labels, N):
+    y = np.zeros((len(labels),N))
+    for i in range(len(labels)):
+        pos = labels[i]
+        y[i,pos] =1
+    return y
 
 def iterate_minibatches_listinputs(inputs, batchsize, shuffle=False):
     assert inputs is not None
@@ -46,62 +207,6 @@ def iterate_minibatches_listinputs(inputs, batchsize, shuffle=False):
         yield [input[excerpt] for input in inputs]
 
 
-def loadRedditFromG(dataset_dir, inputfile):
-    f= open(dataset_dir+inputfile)
-    objects = []
-    for _ in range(pkl.load(f)):
-        objects.append(pkl.load(f))
-    adj, train_labels, val_labels, test_labels, train_index, val_index, test_index = tuple(objects)
-    feats = np.load(dataset_dir + "/reddit-feats.npy")
-    return sp.csr_matrix(adj), sp.lil_matrix(feats), train_labels, val_labels, test_labels, train_index, val_index, test_index
-
-
-def loadRedditFromNPZ(dataset_dir):
-    adj = sp.load_npz(dataset_dir+"reddit_adj.npz")
-    data = np.load(dataset_dir+"reddit.npz")
-
-    return adj, data['feats'], data['y_train'], data['y_val'], data['y_test'], data['train_index'], data['val_index'], data['test_index']
-
-
-
-def transferRedditDataFormat(dataset_dir, output_file):
-    G = json_graph.node_link_graph(json.load(open(dataset_dir + "/reddit-G.json")))
-    labels = json.load(open(dataset_dir + "/reddit-class_map.json"))
-
-    train_ids = [n for n in G.nodes() if not G.node[n]['val'] and not G.node[n]['test']]
-    test_ids = [n for n in G.nodes() if G.node[n]['test']]
-    val_ids = [n for n in G.nodes() if G.node[n]['val']]
-    train_labels = [labels[i] for i in train_ids]
-    test_labels = [labels[i] for i in test_ids]
-    val_labels = [labels[i] for i in val_ids]
-    feats = np.load(dataset_dir + "/reddit-feats.npy")
-    ## Logistic gets thrown off by big counts, so log transform num comments and score
-    feats[:, 0] = np.log(feats[:, 0] + 1.0)
-    feats[:, 1] = np.log(feats[:, 1] - min(np.min(feats[:, 1]), -1))
-    feat_id_map = json.load(open(dataset_dir + "reddit-id_map.json"))
-    feat_id_map = {id: val for id, val in feat_id_map.iteritems()}
-
-    # train_feats = feats[[feat_id_map[id] for id in train_ids]]
-    # test_feats = feats[[feat_id_map[id] for id in test_ids]]
-
-    # numNode = len(feat_id_map)
-    # adj = sp.lil_matrix(np.zeros((numNode,numNode)))
-    # for edge in G.edges():
-    #     adj[feat_id_map[edge[0]], feat_id_map[edge[1]]] = 1
-
-    train_index = [feat_id_map[id] for id in train_ids]
-    val_index = [feat_id_map[id] for id in val_ids]
-    test_index = [feat_id_map[id] for id in test_ids]
-    np.savez(output_file, feats = feats, y_train=train_labels, y_val=val_labels, y_test = test_labels, train_index = train_index,
-             val_index=val_index, test_index = test_index)
-
-
-def transferLabel2Onehot(labels, N):
-    y = np.zeros((len(labels),N))
-    for i in range(len(labels)):
-        pos = labels[i]
-        y[i,pos] =1
-    return y
 
 def construct_feeddict_forMixlayers(AXfeatures, support, labels, placeholders):
     feed_dict = dict()
@@ -267,21 +372,6 @@ def main(rank1):
           "accuracy=", "{:.5f}".format(test_acc), "training time=", "{:.5f}".format(train_duration),
           "epoch = {}".format(epoch+1),
           "test time=", "{:.5f}".format(test_duration))
-
-def transferG2ADJ():
-    G = json_graph.node_link_graph(json.load(open("reddit/reddit-G.json")))
-    feat_id_map = json.load(open("reddit/reddit-id_map.json"))
-    feat_id_map = {id: val for id, val in feat_id_map.iteritems()}
-    numNode = len(feat_id_map)
-    adj = np.zeros((numNode, numNode))
-    newEdges0 = [feat_id_map[edge[0]] for edge in G.edges()]
-    newEdges1 = [feat_id_map[edge[1]] for edge in G.edges()]
-
-    # for edge in G.edges():
-    #     adj[feat_id_map[edge[0]], feat_id_map[edge[1]]] = 1
-    adj = sp.csr_matrix((np.ones((len(newEdges0),)), (newEdges0, newEdges1)), shape=(numNode, numNode))
-    sp.save_npz("reddit_adj.npz", adj)
-
 
 def test(rank1=None):
     # config = tf.ConfigProto(device_count={"CPU": 4}, # limit to num_cpu_core CPU usage
