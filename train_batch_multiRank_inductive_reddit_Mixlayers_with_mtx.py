@@ -2,6 +2,7 @@ from __future__ import division
 from __future__ import print_function
 
 import time
+import datetime
 import tensorflow as tf
 import scipy.sparse as sp
 
@@ -63,7 +64,7 @@ def construct_feeddict_forMixlayers(AXfeatures, support, labels, placeholders):
 
 
 def train(rank1):
-
+    print(datetime.datetime.now(), "Entered train()")
     # config = tf.ConfigProto(device_count={"CPU": 4}, # limit to num_cpu_core CPU usage
     #                 inter_op_parallelism_threads = 1,
     #                 intra_op_parallelism_threads = 4,
@@ -71,7 +72,7 @@ def train(rank1):
     adj, features, y_train, y_val, y_test,train_index, val_index, test_index = load_mtx_data("./data/medium-graph.mtx")
     adj = adj+adj.T
 
-
+    print(datetime.datetime.now(), "FastGCN: Checkpoint 1")
     y_train = transferLabel2Onehot(y_train, 41)
     y_val = transferLabel2Onehot(y_val, 41)
     y_test = transferLabel2Onehot(y_test, 41)
@@ -100,6 +101,7 @@ def train(rank1):
         raise ValueError('Invalid argument for model: ' + str(FLAGS.model))
 
     # Some preprocessing
+    print(datetime.datetime.now(), "FastGCN: Checkpoint 2")
     features = nontuple_preprocess_features(features).todense()
 
     train_features = normADJ_train.dot(features[train_index])
@@ -121,7 +123,10 @@ def train(rank1):
     model = model_func(placeholders, input_dim=features.shape[-1], logging=True)
 
     # Initialize session
-    sess = tf.Session()
+    # sess = tf.Session()
+    config = tf.ConfigProto()
+    config.gpu_options.per_process_gpu_memory_fraction = 0.8
+    sess = tf.Session(config=config)
 
     # Define model evaluation function
     def evaluate(features, support, labels, placeholders):
@@ -142,6 +147,7 @@ def train(rank1):
     valSupport = sparse_to_tuple(normADJ[val_index, :])
     testSupport = sparse_to_tuple(normADJ[test_index, :])
 
+    print(datetime.datetime.now(), "FastGCN: Checkpoint 3")
     t = time.time()
     maxACC = 0.0
     # Train model
@@ -189,7 +195,7 @@ def train(rank1):
             saver.save(sess, "tmp/tmp_MixModel_sampleA_full.ckpt")
 
         # Print results
-        print("Epoch:", '%04d' % (epoch + 1), "train_loss=", "{:.5f}".format(outs[1]),
+        print(datetime.datetime.now(), "Epoch:", '%04d' % (epoch + 1), "train_loss=", "{:.5f}".format(outs[1]),
               "train_acc=", "{:.5f}".format(outs[2]), "val_loss=", "{:.5f}".format(cost),
               "val_acc=", "{:.5f}".format(acc), "time per batch=", "{:.5f}".format((time.time() - t1)/n))
 
@@ -197,7 +203,7 @@ def train(rank1):
             # Validation
             test_cost, test_acc, test_duration = evaluate(features, testSupport, y_test,
                                                           placeholders)
-            print("training time by far=", "{:.5f}".format(time.time() - t),
+            print(datetime.datetime.now(), "training time by far=", "{:.5f}".format(time.time() - t),
                   "epoch = {}".format(epoch + 1),
                   "cost=", "{:.5f}".format(test_cost),
                   "accuracy=", "{:.5f}".format(test_acc))
@@ -212,7 +218,7 @@ def train(rank1):
         saver.restore(sess, "tmp/tmp_MixModel_sampleA_full.ckpt")
     test_cost, test_acc, test_duration = evaluate(features, testSupport, y_test,
                                                   placeholders)
-    print("rank1 = {}".format(rank1), "cost=", "{:.5f}".format(test_cost),
+    print(datetime.datetime.now(), "rank1 = {}".format(rank1), "cost=", "{:.5f}".format(test_cost),
           "accuracy=", "{:.5f}".format(test_acc), "training time=", "{:.5f}".format(train_duration),
           "epoch = {}".format(epoch+1),
           "test time=", "{:.5f}".format(test_duration))
@@ -317,6 +323,7 @@ def test(rank1=None):
 
 if __name__=="__main__":
     # main(None)
+    print("Starting fastGCN Training")
     train(None)
     # for k in [25, 50, 100, 200, 400]:
     #     main(k)

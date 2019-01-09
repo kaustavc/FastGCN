@@ -1,4 +1,5 @@
 import random
+import datetime
 import numpy as np
 from scipy.io import mmread
 
@@ -63,13 +64,18 @@ def load_mtx_data(adj_mtx_file):
     TODO: For now only the adjacency data is loaded from the mtx file. The features and labels are mocked with
     TODO: random data. This will be addressed in subsequent updates.
     """
-    # Get the adjacency matrix
+    print(datetime.datetime.now(), "Loading adjacency data from " + adj_mtx_file)
     (nv, adj) = _load_adj_from_mtx_as_csr(adj_mtx_file)
+    print(datetime.datetime.now(), "Loading features")
     features = _load_features(nv)
+    print(datetime.datetime.now(), "Loading label map")
     label_map = _load_labels(nv)
+    print(datetime.datetime.now(), "Extracting TVT indexes")
     train_indexes, validation_indexes, test_indexes = _get_tvt_indexes(label_map)
+    print(datetime.datetime.now(), "Extracting TVT labels")
     train_labels, validation_labels, test_labels = \
         _get_tvt_labels(label_map, train_indexes, validation_indexes, test_indexes)
+    print(datetime.datetime.now(), "MTX Loading complete")
     return adj, features, train_labels, validation_labels, test_labels, train_indexes, validation_indexes, test_indexes
 
 
