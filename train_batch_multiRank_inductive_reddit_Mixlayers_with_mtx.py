@@ -12,7 +12,6 @@ from models import GCN_APPRO_Mix
 import json
 from networkx.readwrite import json_graph
 import os
-from memory_profiler import profile
 
 # Set random seed
 seed = 123
@@ -63,7 +62,7 @@ def construct_feeddict_forMixlayers(AXfeatures, support, labels, placeholders):
     feed_dict.update({placeholders['num_features_nonzero']: AXfeatures[1].shape})
     return feed_dict
 
-@profile
+
 def train(rank1):
     print(datetime.datetime.now(), "Entered train()")
     # config = tf.ConfigProto(device_count={"CPU": 4}, # limit to num_cpu_core CPU usage

@@ -7,7 +7,6 @@ import sys
 from scipy.sparse.linalg import norm as sparsenorm
 from scipy.linalg import qr
 # from sklearn.metrics import f1_score
-from memory_profiler import profile
 
 
 def parse_index_file(filename):
@@ -223,7 +222,7 @@ def preprocess_features(features):
     features = r_mat_inv.dot(features)
     return sparse_to_tuple(features)
 
-@profile
+
 def normalize_adj(adj):
     """Symmetrically normalize adjacency matrix."""
     adj = sp.coo_matrix(adj)
@@ -231,13 +230,8 @@ def normalize_adj(adj):
     d_inv_sqrt = np.power(rowsum, -0.5).flatten()
     d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
     d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
-    # return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
-    x = adj.dot(d_mat_inv_sqrt)
-    xt = x.transpose()
-    y = xt.dot(d_mat_inv_sqrt)
-    return y.tocoo()
+    return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
 
-@profile
 def nontuple_preprocess_adj(adj):
     adj_normalized = normalize_adj(sp.eye(adj.shape[0]) + adj)
     # adj_normalized = sp.eye(adj.shape[0]) + normalize_adj(adj)
