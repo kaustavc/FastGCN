@@ -230,7 +230,12 @@ def normalize_adj(adj):
     d_inv_sqrt = np.power(rowsum, -0.5).flatten()
     d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
     d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
-    return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
+    # return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
+    x = adj.dot(d_mat_inv_sqrt)
+    xt = x.transpose()
+    y = xt.dot(d_mat_inv_sqrt)
+    return y.tocoo()
+
 
 def nontuple_preprocess_adj(adj):
     adj_normalized = normalize_adj(sp.eye(adj.shape[0]) + adj)
