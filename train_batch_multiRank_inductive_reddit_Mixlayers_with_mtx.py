@@ -12,6 +12,7 @@ from models import GCN_APPRO_Mix
 import json
 from networkx.readwrite import json_graph
 import os
+import sys
 
 # Set random seed
 seed = 123
@@ -63,13 +64,13 @@ def construct_feeddict_forMixlayers(AXfeatures, support, labels, placeholders):
     return feed_dict
 
 
-def train(rank1):
-    print(datetime.datetime.now(), "Entered train()")
+def train(adj_file, rank1=None):
+    print(datetime.datetime.now(), "Entered train() with adj_file = " + adj_file)
     # config = tf.ConfigProto(device_count={"CPU": 4}, # limit to num_cpu_core CPU usage
     #                 inter_op_parallelism_threads = 1,
     #                 intra_op_parallelism_threads = 4,
     #                 log_device_placement=False)
-    adj, features, y_train, y_val, y_test,train_index, val_index, test_index = load_mtx_data("./data/medium-graph.mtx")
+    adj, features, y_train, y_val, y_test,train_index, val_index, test_index = load_mtx_data(adj_file)
     adj = adj+adj.T
 
     print(datetime.datetime.now(), "FastGCN: Checkpoint 1")
@@ -223,12 +224,12 @@ def train(rank1):
           "epoch = {}".format(epoch+1),
           "test time=", "{:.5f}".format(test_duration))
 
-def test(rank1=None):
+def test(adj_file, rank1=None):
     # config = tf.ConfigProto(device_count={"CPU": 4}, # limit to num_cpu_core CPU usage
     #                 inter_op_parallelism_threads = 1,
     #                 intra_op_parallelism_threads = 4,
     #                 log_device_placement=False)
-    adj, features, y_train, y_val, y_test, train_index, val_index, test_index = load_mtx_data("data/medium-graph.mtx")
+    adj, features, y_train, y_val, y_test, train_index, val_index, test_index = load_mtx_data(adj_file)
     adj = adj + adj.T
 
     y_train = transferLabel2Onehot(y_train, 41)
@@ -323,7 +324,7 @@ def test(rank1=None):
 
 if __name__=="__main__":
     # main(None)
-    print("Starting fastGCN Training")
-    train(None)
+    print("Starting fastGCN Training on " + sys.argv[1])
+    train(sys.argv[1])
     # for k in [25, 50, 100, 200, 400]:
     #     main(k)
