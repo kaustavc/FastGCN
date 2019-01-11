@@ -74,9 +74,9 @@ def train(adj_file, rank1=None):
     adj = adj+adj.T
 
     print(datetime.datetime.now(), "FastGCN: Checkpoint 1")
-    y_train = transferLabel2Onehot(y_train, 41)
-    y_val = transferLabel2Onehot(y_val, 41)
-    y_test = transferLabel2Onehot(y_test, 41)
+    y_train = transferLabel2Onehot(y_train, 2)
+    y_val = transferLabel2Onehot(y_val, 2)
+    y_test = transferLabel2Onehot(y_test, 2)
 
     # OPT: Eliminating this
     # features = sp.lil_matrix(features)
@@ -233,8 +233,8 @@ def test(adj_file, rank1=None):
     adj, features, y_train, y_val, y_test, train_index, val_index, test_index = load_mtx_data(adj_file)
     adj = adj + adj.T
 
-    y_train = transferLabel2Onehot(y_train, 41)
-    y_test = transferLabel2Onehot(y_test, 41)
+    y_train = transferLabel2Onehot(y_train, 2)
+    y_test = transferLabel2Onehot(y_test, 2)
 
     features = sp.lil_matrix(features)
 
