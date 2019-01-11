@@ -225,16 +225,19 @@ def preprocess_features(features):
 
 def normalize_adj(adj):
     """Symmetrically normalize adjacency matrix."""
-    adj = sp.coo_matrix(adj)
+    # OPT: Removing trasnformation to COO
+    # adj = sp.coo_matrix(adj)
     rowsum = np.array(adj.sum(1))
     d_inv_sqrt = np.power(rowsum, -0.5).flatten()
     d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
     d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
+    d_inv_sqrt = None # OPT
     # return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
-    x = adj.dot(d_mat_inv_sqrt)
-    xt = x.transpose()
+    xt = adj.dot(d_mat_inv_sqrt).transpose()
     y = xt.dot(d_mat_inv_sqrt)
-    return y.tocoo()
+    xt = None # OPT
+    # return y.tocoo()
+    return y # OPT
 
 
 def nontuple_preprocess_adj(adj):

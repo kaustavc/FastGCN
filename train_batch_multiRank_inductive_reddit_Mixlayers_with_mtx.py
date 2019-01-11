@@ -78,7 +78,8 @@ def train(adj_file, rank1=None):
     y_val = transferLabel2Onehot(y_val, 41)
     y_test = transferLabel2Onehot(y_test, 41)
 
-    features = sp.lil_matrix(features)
+    # OPT: Eliminating this
+    # features = sp.lil_matrix(features)
 
     adj_train = adj[train_index, :][:, train_index]
 
