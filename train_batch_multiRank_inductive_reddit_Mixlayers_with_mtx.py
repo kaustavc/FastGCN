@@ -162,7 +162,9 @@ def train(adj_file, rank1=None):
         n = 0
         for batch in iterate_minibatches_listinputs([normADJ_train, y_train], batchsize=256, shuffle=True):
             current_batch_start_time = time.time()
-            print(datetime.datetime.now(), "Starting training epoch/batch : %d/%d " % (epoch, n))
+            if (n % 1000) == 0:
+                print(datetime.datetime.now(), "Starting training epoch/batch : %d/%d " % (epoch, n))
+
             [normADJ_batch, y_train_batch] = batch
 
             # p1 = column_prop(normADJ_batch)
@@ -189,16 +191,17 @@ def train(adj_file, rank1=None):
             feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
             # Training step
-            print(datetime.datetime.now(), "Starting sess.run for batch")
+            # print(datetime.datetime.now(), "Starting sess.run for batch")
             outs = sess.run([model.opt_op, model.loss, model.accuracy], feed_dict=feed_dict,
                             options=tf.RunOptions(report_tensor_allocations_upon_oom=True))
             n = n+1
-            print(datetime.datetime.now(), "Finished epoch/batch %d/%d in %d seconds" % (epoch, n, time.time() - current_batch_start_time))
+            if (n % 1000) == 0:
+                print(datetime.datetime.now(), "Finished epoch/batch %d/%d after %d seconds" % (epoch, n, time.time() - current_epoch_start_time))
 
 
         # Validation
         print(datetime.datetime.now(), "Starting validation for epoch %d" % epoch)
-        cost, acc, duration = evaluate(features, valSupport, y_val,  placeholders)
+        cost, acc, duration = 0, 0, 0 #evaluate(features, valSupport, y_val,  placeholders)
         cost_val.append(cost)
         print(datetime.datetime.now(), "Done validation for epoch %d" % epoch)
 
@@ -213,8 +216,7 @@ def train(adj_file, rank1=None):
 
         if epoch%5==0:
             # Validation
-            test_cost, test_acc, test_duration = evaluate(features, testSupport, y_test,
-                                                          placeholders)
+            test_cost, test_acc, test_duration = 0, 0, 0 #evaluate(features, testSupport, y_test, placeholders)
             print(datetime.datetime.now(), "training time by far=", "{:.5f}".format(time.time() - all_epochs_start_time),
                   "epoch = {}".format(epoch + 1),
                   "cost=", "{:.5f}".format(test_cost),
@@ -228,8 +230,7 @@ def train(adj_file, rank1=None):
     # Testing
     if os.path.exists("tmp/tmp_MixModel_sampleA_full.ckpt.index"):
         saver.restore(sess, "tmp/tmp_MixModel_sampleA_full.ckpt")
-    test_cost, test_acc, test_duration = evaluate(features, testSupport, y_test,
-                                                  placeholders)
+    test_cost, test_acc, test_duration = 0, 0, 0 # evaluate(features, testSupport, y_test, placeholders)
     print(datetime.datetime.now(), "rank1 = {}".format(rank1), "cost=", "{:.5f}".format(test_cost),
           "accuracy=", "{:.5f}".format(test_acc), "training time=", "{:.5f}".format(train_duration),
           "epoch = {}".format(epoch+1),
