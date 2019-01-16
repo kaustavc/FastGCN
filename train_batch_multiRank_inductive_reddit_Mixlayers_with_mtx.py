@@ -78,8 +78,8 @@ def train(adj_file, rank1=None):
     y_val = transferLabel2Onehot(y_val, 2)
     y_test = transferLabel2Onehot(y_test, 2)
 
-    # OPT: Eliminating this
-    # features = sp.lil_matrix(features)
+    # OPT: Can we eliminating this? Needed later else todense() fails below
+    features = sp.lil_matrix(features)
 
     adj_train = adj[train_index, :][:, train_index]
 
@@ -134,7 +134,9 @@ def train(adj_file, rank1=None):
     def evaluate(features, support, labels, placeholders):
         t_test = time.time()
         feed_dict_val = construct_feeddict_forMixlayers(features, support, labels, placeholders)
-        outs_val = sess.run([model.loss, model.accuracy], feed_dict=feed_dict_val)
+        print(datetime.datetime.now(), "Starting sess.run for evaluate")
+        outs_val = sess.run([model.loss, model.accuracy], feed_dict=feed_dict_val,
+                            options=tf.RunOptions(report_tensor_allocations_upon_oom=True))
         return outs_val[0], outs_val[1], (time.time() - t_test)
 
     # Init variables
@@ -150,14 +152,17 @@ def train(adj_file, rank1=None):
     testSupport = sparse_to_tuple(normADJ[test_index, :])
 
     print(datetime.datetime.now(), "FastGCN: Checkpoint 3")
-    t = time.time()
+    all_epochs_start_time = time.time()
     maxACC = 0.0
     # Train model
     for epoch in range(FLAGS.epochs):
-        t1 = time.time()
+        print(datetime.datetime.now(), "Starting training epoch %d" % epoch)
 
+        current_epoch_start_time = time.time()
         n = 0
         for batch in iterate_minibatches_listinputs([normADJ_train, y_train], batchsize=256, shuffle=True):
+            current_batch_start_time = time.time()
+            print(datetime.datetime.now(), "Starting training epoch/batch : %d/%d " % (epoch, n))
             [normADJ_batch, y_train_batch] = batch
 
             # p1 = column_prop(normADJ_batch)
@@ -184,13 +189,18 @@ def train(adj_file, rank1=None):
             feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
             # Training step
-            outs = sess.run([model.opt_op, model.loss, model.accuracy], feed_dict=feed_dict)
+            print(datetime.datetime.now(), "Starting sess.run for batch")
+            outs = sess.run([model.opt_op, model.loss, model.accuracy], feed_dict=feed_dict,
+                            options=tf.RunOptions(report_tensor_allocations_upon_oom=True))
             n = n+1
+            print(datetime.datetime.now(), "Finished epoch/batch %d/%d in %d seconds" % (epoch, n, time.time() - current_batch_start_time))
 
 
         # Validation
+        print(datetime.datetime.now(), "Starting validation for epoch %d" % epoch)
         cost, acc, duration = evaluate(features, valSupport, y_val,  placeholders)
         cost_val.append(cost)
+        print(datetime.datetime.now(), "Done validation for epoch %d" % epoch)
 
         if epoch > 20 and acc>maxACC:
             maxACC = acc
@@ -199,13 +209,13 @@ def train(adj_file, rank1=None):
         # Print results
         print(datetime.datetime.now(), "Epoch:", '%04d' % (epoch + 1), "train_loss=", "{:.5f}".format(outs[1]),
               "train_acc=", "{:.5f}".format(outs[2]), "val_loss=", "{:.5f}".format(cost),
-              "val_acc=", "{:.5f}".format(acc), "time per batch=", "{:.5f}".format((time.time() - t1)/n))
+              "val_acc=", "{:.5f}".format(acc), "time per batch=", "{:.5f}".format((time.time() - current_epoch_start_time)/n))
 
         if epoch%5==0:
             # Validation
             test_cost, test_acc, test_duration = evaluate(features, testSupport, y_test,
                                                           placeholders)
-            print(datetime.datetime.now(), "training time by far=", "{:.5f}".format(time.time() - t),
+            print(datetime.datetime.now(), "training time by far=", "{:.5f}".format(time.time() - all_epochs_start_time),
                   "epoch = {}".format(epoch + 1),
                   "cost=", "{:.5f}".format(test_cost),
                   "accuracy=", "{:.5f}".format(test_acc))
@@ -214,7 +224,7 @@ def train(adj_file, rank1=None):
             # print("Early stopping...")
             break
 
-    train_duration = time.time() - t
+    train_duration = time.time() - all_epochs_start_time
     # Testing
     if os.path.exists("tmp/tmp_MixModel_sampleA_full.ckpt.index"):
         saver.restore(sess, "tmp/tmp_MixModel_sampleA_full.ckpt")
@@ -224,6 +234,9 @@ def train(adj_file, rank1=None):
           "accuracy=", "{:.5f}".format(test_acc), "training time=", "{:.5f}".format(train_duration),
           "epoch = {}".format(epoch+1),
           "test time=", "{:.5f}".format(test_duration))
+
+
+
 
 def test(adj_file, rank1=None):
     # config = tf.ConfigProto(device_count={"CPU": 4}, # limit to num_cpu_core CPU usage

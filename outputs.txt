@@ -1,0 +1,47 @@
+OOM-20190109
+------------
+/anaconda/envs/py35/lib/python3.5/site-packages/h5py/__init__.py:36: FutureWarning: Conversion of the second argument of issubdtype from `float` to `np.floating` is deprecated. In future, it will be treated as `np.float64 == np.dtype(float).type`.
+  from ._conv import register_converters as _register_converters
+Starting fastGCN Training
+2019-01-09 06:25:29.257357 Entered train()
+2019-01-09 06:25:29.257400 Loading adjacency data from /mnt/dataset/fksoc2_2018-02/g.mtx
+2019-01-09 07:03:03.936933 Loading features
+2019-01-09 07:03:04.073104 Loading label map
+2019-01-09 07:03:20.287028 Extracting TVT indexes
+2019-01-09 07:03:20.755341 Extracting TVT labels
+2019-01-09 07:03:21.664095 MTX Loading complete
+2019-01-09 07:06:57.529974 FastGCN: Checkpoint 1
+Traceback (most recent call last):
+  File "train_batch_multiRank_inductive_reddit_Mixlayers_with_mtx.py", line 327, in <module>
+    train(None)
+  File "train_batch_multiRank_inductive_reddit_Mixlayers_with_mtx.py", line 94, in train
+    normADJ = nontuple_preprocess_adj(adj)
+  File "/data/home/samik.datta/fastgcn-kaustav/utils.py", line 236, in nontuple_preprocess_adj
+    adj_normalized = normalize_adj(sp.eye(adj.shape[0]) + adj)
+  File "/data/home/samik.datta/fastgcn-kaustav/utils.py", line 233, in normalize_adj
+    return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
+  File "/anaconda/envs/py35/lib/python3.5/site-packages/scipy/sparse/compressed.py", line 940, in tocoo
+    dtype=self.dtype)
+  File "/anaconda/envs/py35/lib/python3.5/site-packages/scipy/sparse/coo.py", line 159, in __init__
+    self.data = np.array(obj, copy=copy)
+MemoryError
+
+
+samik.datta@gpu-067:~$ cat /proc/2528/limits
+Limit                     Soft Limit           Hard Limit           Units
+Max cpu time              unlimited            unlimited            seconds
+Max file size             unlimited            unlimited            bytes
+Max data size             unlimited            unlimited            bytes
+Max stack size            8388608              unlimited            bytes
+Max core file size        0                    unlimited            bytes
+Max resident set          unlimited            unlimited            bytes
+Max processes             451117               451117               processes
+Max open files            1024                 1048576              files
+Max locked memory         unlimited            unlimited            bytes
+Max address space         unlimited            unlimited            bytes
+Max file locks            unlimited            unlimited            locks
+Max pending signals       451117               451117               signals
+Max msgqueue size         819200               819200               bytes
+Max nice priority         0                    0
+Max realtime priority     0                    0
+Max realtime timeout      unlimited            unlimited            us

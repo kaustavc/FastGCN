@@ -1,0 +1,51 @@
+diff --git a/train_batch_multiRank_inductive_reddit_Mixlayers_with_mtx.py b/train_batch_multiRank_inductive_reddit_Mixlayers_with_mtx.py
+index 4bccc45..d66a62f 100755
+--- a/train_batch_multiRank_inductive_reddit_Mixlayers_with_mtx.py
++++ b/train_batch_multiRank_inductive_reddit_Mixlayers_with_mtx.py
+@@ -13,6 +13,7 @@ import json
+ from networkx.readwrite import json_graph
+ import os
+ import sys
++from memory_profiler import profile
+ 
+ # Set random seed
+ seed = 123
+@@ -63,7 +64,7 @@ def construct_feeddict_forMixlayers(AXfeatures, support, labels, placeholders):
+     feed_dict.update({placeholders['num_features_nonzero']: AXfeatures[1].shape})
+     return feed_dict
+ 
+-
++@profile
+ def train(adj_file, rank1=None):
+     print(datetime.datetime.now(), "Entered train() with adj_file = " + adj_file)
+     # config = tf.ConfigProto(device_count={"CPU": 4}, # limit to num_cpu_core CPU usage
+diff --git a/utils.py b/utils.py
+index 86bd66d..0f7a073 100755
+--- a/utils.py
++++ b/utils.py
+@@ -7,6 +7,7 @@ import sys
+ from scipy.sparse.linalg import norm as sparsenorm
+ from scipy.linalg import qr
+ # from sklearn.metrics import f1_score
++from memory_profiler import profile
+ 
+ 
+ def parse_index_file(filename):
+@@ -222,7 +223,7 @@ def preprocess_features(features):
+     features = r_mat_inv.dot(features)
+     return sparse_to_tuple(features)
+ 
+-
++@profile
+ def normalize_adj(adj):
+     """Symmetrically normalize adjacency matrix."""
+     adj = sp.coo_matrix(adj)
+@@ -236,7 +237,7 @@ def normalize_adj(adj):
+     y = xt.dot(d_mat_inv_sqrt)
+     return y.tocoo()
+ 
+-
++@profile
+ def nontuple_preprocess_adj(adj):
+     adj_normalized = normalize_adj(sp.eye(adj.shape[0]) + adj)
+     # adj_normalized = sp.eye(adj.shape[0]) + normalize_adj(adj)
