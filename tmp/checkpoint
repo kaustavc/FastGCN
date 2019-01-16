@@ -1,2 +1,0 @@
-model_checkpoint_path: "tmp_MixModel_sampleA_full.ckpt"
-all_model_checkpoint_paths: "tmp_MixModel_sampleA_full.ckpt"
